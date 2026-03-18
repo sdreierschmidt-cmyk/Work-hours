@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Work Hours" />
+<title>Work Hours</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #161616;
+    --bg3: #1e1e1e;
+    --border: #222;
+    --border2: #1a1a1a;
+    --text: #f0ece4;
+    --muted: #888;
+    --dim: #555;
+    --faint: #333;
+    --gold: #e8c87a;
+    --green: #7ecb9e;
+    --red: #e07a6a;
+    --blue: #7a9fd4;
+    --bluebg: #111318;
+    --todaybg: #141410;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; }
+  input, button { font-family: 'DM Mono', monospace; }
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+  /* ── Layout ── */
+  #app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── Header ── */
+  .header { background: var(--bg2); border-bottom: 1px solid #252525; padding: 20px 20px 0; position: sticky; top: 0; z-index: 10; }
+  .header-title { display: flex; align-items: baseline; gap: 10px; margin-bottom: 2px; }
+  .header-title h1 { font-family: 'Playfair Display', serif; font-size: 22px; letter-spacing: -0.5px; }
+  .header-title span { font-size: 11px; color: var(--dim); letter-spacing: 2px; text-transform: uppercase; }
+  .header-sub { font-size: 11px; color: #444; letter-spacing: 1px; margin-bottom: 16px; }
+  .tabs { display: flex; }
+  .tab { padding: 8px 18px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--dim); border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.15s; }
+  .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+  /* ── Week nav ── */
+  .week-nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border2); }
+  .week-nav button { background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; padding: 4px 10px; line-height: 1; }
+  .week-label { font-size: 12px; color: var(--muted); letter-spacing: 1px; text-align: center; }
+
+  /* ── Summary card ── */
+  .summary { margin: 14px 20px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px 18px; }
+  .summary-row { display: flex; justify-content: space-between; align-items: flex-end; }
+  .summary-col label { font-size: 11px; color: var(--dim); letter-spacing: 1.5px; display: block; margin-bottom: 4px; }
+  .summary-col .big { font-size: 28px; font-weight: 300; letter-spacing: -1px; }
+  .progress-track { margin-top: 14px; background: #222; border-radius: 2px; height: 3px; }
+  .progress-bar { height: 3px; border-radius: 2px; transition: width 0.4s; background: var(--green); }
+  .progress-label { margin-top: 6px; font-size: 10px; color: #444; }
+
+  /* ── Day rows ── */
+  .day-row { padding: 14px 20px; border-bottom: 1px solid var(--border2); cursor: pointer; border-left: 2px solid transparent; transition: background 0.1s; }
+  .day-row:active { background: #1a1a1a; }
+  .day-row.is-today { background: var(--todaybg); border-left-color: var(--gold); }
+  .day-row.is-weekend { background: var(--bluebg); border-left-color: var(--blue); }
+  .day-inner { display: flex; justify-content: space-between; align-items: center; }
+  .day-left .day-name { display: flex; align-items: center; gap: 8px; font-size: 13px; letter-spacing: 0.5px; }
+  .day-left .day-name.today { color: var(--gold); }
+  .day-left .day-name.weekend { color: var(--blue); }
+  .badge { font-size: 9px; padding: 2px 6px; border-radius: 2px; letter-spacing: 1px; }
+  .badge-today { background: #e8c87a22; color: var(--gold); }
+  .badge-weekend { background: #4a6fa522; color: var(--blue); }
+  .day-sub { font-size: 11px; color: var(--dim); margin-top: 3px; }
+  .day-right { text-align: right; }
+  .day-right .worked { font-size: 15px; }
+  .day-right .overtime { font-size: 11px; }
+  .tap-hint { font-size: 11px; color: var(--faint); letter-spacing: 1px; }
+
+  /* ── Inline editor ── */
+  .editor { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 16px 20px; }
+  .editor-fields { display: flex; gap: 10px; margin-bottom: 10px; }
+  .field { flex: 1; }
+  .field label { font-size: 10px; color: var(--dim); letter-spacing: 1px; display: block; margin-bottom: 6px; }
+  .field input { width: 100%; background: var(--bg3); border: 1px solid #2a2a2a; border-radius: 4px; padding: 10px 12px; color: var(--text); font-size: 16px; outline: none; }
+  .field input:focus { border-color: #444; }
+  .field.full { flex: none; width: 100%; margin-bottom: 10px; }
+  .field.full input { font-size: 13px; }
+  .preview { background: #1a1a1a; border-radius: 4px; padding: 10px 14px; margin-bottom: 10px; display: flex; justify-content: space-between; font-size: 12px; }
+  .preview .ph { color: var(--muted); }
+  .editor-btns { display: flex; gap: 8px; }
+  .btn { border: none; border-radius: 4px; padding: 12px 16px; font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: opacity 0.15s; }
+  .btn:active { opacity: 0.8; }
+  .btn-save { flex: 1; background: var(--gold); color: #0f0f0f; font-weight: 500; }
+  .btn-del { background: #2a1a1a; color: var(--red); }
+  .btn-cancel { background: var(--bg3); color: #666; }
+
+  /* ── Cumulative balance ── */
+  .balance { margin: 18px 20px 0; padding: 14px 18px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .balance label { font-size: 11px; color: var(--dim); letter-spacing: 1.5px; }
+  .balance .val { font-size: 18px; }
+
+  /* ── History ── */
+  .history-week { border-bottom: 1px solid var(--border2); }
+  .history-header { padding: 12px 20px; background: #131313; display: flex; justify-content: space-between; align-items: center; }
+  .history-header .wk-label { font-size: 12px; color: var(--muted); letter-spacing: 1px; }
+  .history-header .wk-right { text-align: right; }
+  .history-header .wk-total { font-size: 14px; }
+  .history-header .wk-ot { font-size: 11px; }
+  .history-day { padding: 10px 20px 10px 30px; border-bottom: 1px solid #181818; display: flex; justify-content: space-between; }
+  .history-day .hd-name { font-size: 12px; color: #aaa; }
+  .history-day .hd-sub { font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .history-day .hd-right { text-align: right; }
+  .history-day .hd-worked { font-size: 13px; color: #ddd; }
+  .history-day .hd-ot { font-size: 11px; }
+
+  .empty { text-align: center; padding: 60px 24px; color: #444; font-size: 13px; line-height: 1.8; }
+
+  .green { color: var(--green); }
+  .red { color: var(--red); }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ── Helpers ──────────────────────────────────────────────────────────────
+const WEEKLY_TARGET = 32;
+const DAILY_TARGET = WEEKLY_TARGET / 5;
+
+function timeToHours(t) {
+  if (!t) return null;
+  const [h, m] = t.split(':').map(Number);
+  return h + m / 60;
+}
+
+function hoursToHM(h) {
+  if (h === null || isNaN(h)) return '--:--';
+  const sign = h < 0 ? '-' : '';
+  const abs = Math.abs(h);
+  const hh = Math.floor(abs);
+  const mm = Math.round((abs - hh) * 60);
+  return `${sign}${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+}
+
+function getWeekKey(date) {
+  const d = new Date(date);
+  const day = d.getDay() || 7;
+  d.setDate(d.getDate() - day + 1);
+  return d.toISOString().split('T')[0];
+}
+
+function getWeekDates(weekKey) {
+  const start = new Date(weekKey);
+  return Array.from({length: 7}, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d.toISOString().split('T')[0];
+  });
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short'});
+}
+
+function isWeekend(dateStr) {
+  const day = new Date(dateStr).getDay();
+  return day === 0 || day === 6;
+}
+
+function isFriday(dateStr) {
+  return new Date(dateStr).getDay() === 5;
+}
+
+function defaultHours(dateStr) {
+  if (isWeekend(dateStr)) return {start: '09:00', end: '15:00', note: ''};
+  if (isFriday(dateStr))  return {start: '08:15', end: '14:15', note: ''};
+  return {start: '08:15', end: '14:45', note: ''};
+}
+
+function today() { return new Date().toISOString().split('T')[0]; }
+function currentWeekKey() { return getWeekKey(new Date()); }
+
+// ── Storage ──────────────────────────────────────────────────────────────
+function loadEntries() {
+  try { return JSON.parse(localStorage.getItem('wh-entries') || '{}'); } catch { return {}; }
+}
+function saveEntries(e) {
+  try { localStorage.setItem('wh-entries', JSON.stringify(e)); } catch {}
+}
+
+// ── State ─────────────────────────────────────────────────────────────────
+let state = {
+  entries: loadEntries(),
+  view: 'week',
+  weekKey: currentWeekKey(),
+  editingDay: null,
+  form: {start: '08:15', end: '14:45', note: ''}
+};
+
+function setState(patch) {
+  Object.assign(state, patch);
+  render();
+}
+
+// ── Rendering ─────────────────────────────────────────────────────────────
+function el(tag, attrs, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(), v);
+    else e.setAttribute(k, v);
+  }
+  for (const c of children.flat()) {
+    if (c == null) continue;
+    e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  }
+  return e;
+}
+
+function overtimeColor(v) {
+  return v > 0.01 ? 'green' : v < -0.01 ? 'red' : 'muted';
+}
+
+function renderHeader() {
+  return el('div', {class: 'header'},
+    el('div', {class: 'header-title'},
+      el('h1', {}, 'Work Hours'),
+      el('span', {}, 'tracker')
+    ),
+    el('div', {class: 'header-sub'}, '32h/week · 6h 24min/day target'),
+    el('div', {class: 'tabs'},
+      el('div', {class: `tab ${state.view === 'week' ? 'active' : ''}`, onClick: () => setState({view:'week'})}, 'Week'),
+      el('div', {class: `tab ${state.view === 'history' ? 'active' : ''}`, onClick: () => setState({view:'history'})}, 'History')
+    )
+  );
+}
+
+function renderWeekView() {
+  const wrap = el('div', {});
+  const weekDates = getWeekDates(state.weekKey);
+  const todayStr = today();
+  const isThisWeek = state.weekKey === currentWeekKey();
+
+  // Week nav
+  const wkLabel = isThisWeek
+    ? 'THIS WEEK'
+    : `WEEK OF ${new Date(state.weekKey).toLocaleDateString('en-GB', {day:'numeric', month:'short'}).toUpperCase()}`;
+  wrap.appendChild(el('div', {class: 'week-nav'},
+    el('button', {onClick: () => {
+      const d = new Date(state.weekKey); d.setDate(d.getDate() - 7);
+      setState({weekKey: d.toISOString().split('T')[0], editingDay: null});
+    }}, '‹'),
+    el('div', {class: 'week-label'}, wkLabel),
+    el('button', {onClick: () => {
+      const d = new Date(state.weekKey); d.setDate(d.getDate() + 7);
+      setState({weekKey: d.toISOString().split('T')[0], editingDay: null});
+    }}, '›')
+  ));
+
+  // Summary
+  const weekTotal = weekDates.reduce((s, d) => s + (state.entries[d]?.worked || 0), 0);
+  const weekOT = weekTotal - WEEKLY_TARGET;
+  const pct = Math.min(100, (weekTotal / WEEKLY_TARGET) * 100);
+  const summary = el('div', {class: 'summary'},
+    el('div', {class: 'summary-row'},
+      el('div', {class: 'summary-col'},
+        el('label', {}, 'WEEK TOTAL'),
+        el('div', {class: 'big'}, hoursToHM(weekTotal))
+      ),
+      el('div', {class: 'summary-col'},
+        el('label', {}, 'OVERTIME'),
+        el('div', {class: `big ${overtimeColor(weekOT)}`}, (weekOT >= 0 ? '+' : '') + hoursToHM(weekOT))
+      )
+    ),
+    el('div', {class: 'progress-track'},
+      el('div', {class: 'progress-bar', style: `width:${pct}%; background:${weekOT >= 0 ? 'var(--green)' : 'var(--gold)'}`})
+    ),
+    el('div', {class: 'progress-label'}, `${Math.round(pct)}% of 32h target`)
+  );
+  wrap.appendChild(summary);
+
+  // Day rows
+  for (const dateStr of weekDates) {
+    const entry = state.entries[dateStr];
+    const isToday = dateStr === todayStr;
+    const isWE = isWeekend(dateStr);
+    const isEditing = state.editingDay === dateStr;
+    const dayOT = entry ? entry.worked - DAILY_TARGET : null;
+
+    let rowClass = 'day-row';
+    if (isToday) rowClass += ' is-today';
+    else if (isWE) rowClass += ' is-weekend';
+
+    const nameClass = isToday ? 'today' : isWE ? 'weekend' : '';
+    const badges = [];
+    if (isToday) badges.push(el('span', {class: 'badge badge-today'}, 'TODAY'));
+    else if (isWE) badges.push(el('span', {class: 'badge badge-weekend'}, 'WEEKEND'));
+
+    const row = el('div', {class: rowClass, onClick: () => {
+      if (state.editingDay === dateStr) return;
+      setState({editingDay: dateStr, form: entry
+        ? {start: entry.start, end: entry.end, note: entry.note || ''}
+        : defaultHours(dateStr)
+      });
+    }},
+      el('div', {class: 'day-inner'},
+        el('div', {class: 'day-left'},
+          el('div', {class: `day-name ${nameClass}`}, formatDate(dateStr), ...badges),
+          entry ? el('div', {class: 'day-sub'}, `${entry.start} – ${entry.end}${entry.note ? ' · ' + entry.note : ''}`) : null
+        ),
+        el('div', {class: 'day-right'},
+          entry
+            ? [el('div', {class: 'worked'}, hoursToHM(entry.worked)),
+               el('div', {class: `overtime ${overtimeColor(dayOT)}`}, (dayOT >= 0 ? '+' : '') + hoursToHM(dayOT))]
+            : el('div', {class: 'tap-hint'}, 'TAP TO LOG')
+        )
+      )
+    );
+    wrap.appendChild(row);
+
+    // Inline editor
+    if (isEditing) {
+      const f = state.form;
+      const startH = timeToHours(f.start);
+      const endH = timeToHours(f.end);
+      const worked = (startH !== null && endH !== null && endH > startH) ? endH - startH : null;
+      const ot = worked !== null ? worked - DAILY_TARGET : null;
+
+      const editor = el('div', {class: 'editor', onClick: e => e.stopPropagation()},
+        el('div', {class: 'editor-fields'},
+          el('div', {class: 'field'},
+            el('label', {}, 'START'),
+            el('input', {type: 'time', value: f.start, onInput: e => setState({form: {...state.form, start: e.target.value}})})
+          ),
+          el('div', {class: 'field'},
+            el('label', {}, 'END'),
+            el('input', {type: 'time', value: f.end, onInput: e => setState({form: {...state.form, end: e.target.value}})})
+          )
+        ),
+        el('div', {class: 'field full'},
+          el('label', {}, 'NOTE (optional)'),
+          el('input', {type: 'text', value: f.note, placeholder: 'e.g. worked from home',
+            onInput: e => setState({form: {...state.form, note: e.target.value}})})
+        ),
+        worked !== null ? el('div', {class: 'preview'},
+          el('span', {class: 'ph'}, `Hours: `, el('span', {class: 'muted', style:'color:var(--text)'}, hoursToHM(worked))),
+          el('span', {class: overtimeColor(ot)}, (ot >= 0 ? '+' : '') + hoursToHM(ot) + ' overtime')
+        ) : null,
+        el('div', {class: 'editor-btns'},
+          el('button', {class: 'btn btn-save', onClick: () => {
+            const s = timeToHours(state.form.start);
+            const en = timeToHours(state.form.end);
+            if (s === null || en === null || en <= s) return;
+            const newEntries = {...state.entries, [dateStr]: {
+              start: state.form.start, end: state.form.end,
+              note: state.form.note, worked: en - s
+            }};
+            saveEntries(newEntries);
+            setState({entries: newEntries, editingDay: null});
+          }}, 'SAVE'),
+          entry ? el('button', {class: 'btn btn-del', onClick: () => {
+            const newEntries = {...state.entries};
+            delete newEntries[dateStr];
+            saveEntries(newEntries);
+            setState({entries: newEntries, editingDay: null});
+          }}, 'DEL') : null,
+          el('button', {class: 'btn btn-cancel', onClick: () => setState({editingDay: null})}, '✕')
+        )
+      );
+      wrap.appendChild(editor);
+    }
+  }
+
+  // All-time balance
+  const totalOT = Object.values(state.entries).reduce((s, e) => s + (e.worked - DAILY_TARGET), 0);
+  wrap.appendChild(el('div', {class: 'balance'},
+    el('label', {}, 'ALL-TIME OVERTIME BALANCE'),
+    el('div', {class: `val ${overtimeColor(totalOT)}`}, (totalOT >= 0 ? '+' : '') + hoursToHM(totalOT))
+  ));
+
+  // spacer
+  wrap.appendChild(el('div', {style: 'height:32px'}));
+  return wrap;
+}
+
+function renderHistoryView() {
+  const wrap = el('div', {});
+  const allWeeks = [...new Set(Object.keys(state.entries).map(getWeekKey))].sort().reverse();
+
+  if (allWeeks.length === 0) {
+    wrap.appendChild(el('div', {class: 'empty'}, 'No hours logged yet.\nGo to Week view to add your first entry.'));
+    return wrap;
+  }
+
+  for (const wk of allWeeks) {
+    const dates = getWeekDates(wk);
+    const wTotal = dates.reduce((s, d) => s + (state.entries[d]?.worked || 0), 0);
+    const wOT = wTotal - WEEKLY_TARGET;
+
+    const section = el('div', {class: 'history-week'},
+      el('div', {class: 'history-header'},
+        el('div', {class: 'wk-label'},
+          'WEEK OF ' + new Date(wk).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}).toUpperCase()
+        ),
+        el('div', {class: 'wk-right'},
+          el('div', {class: 'wk-total'}, hoursToHM(wTotal)),
+          el('div', {class: `wk-ot ${overtimeColor(wOT)}`}, (wOT >= 0 ? '+' : '') + hoursToHM(wOT))
+        )
+      )
+    );
+
+    for (const d of dates.filter(d => state.entries[d])) {
+      const e = state.entries[d];
+      const dOT = e.worked - DAILY_TARGET;
+      section.appendChild(el('div', {class: 'history-day'},
+        el('div', {},
+          el('div', {class: 'hd-name'}, formatDate(d)),
+          el('div', {class: 'hd-sub'}, `${e.start} – ${e.end}${e.note ? ' · ' + e.note : ''}`)
+        ),
+        el('div', {class: 'hd-right'},
+          el('div', {class: 'hd-worked'}, hoursToHM(e.worked)),
+          el('div', {class: `hd-ot ${overtimeColor(dOT)}`}, (dOT >= 0 ? '+' : '') + hoursToHM(dOT))
+        )
+      ));
+    }
+    wrap.appendChild(section);
+  }
+
+  wrap.appendChild(el('div', {style: 'height:32px'}));
+  return wrap;
+}
+
+function render() {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  app.appendChild(renderHeader());
+  app.appendChild(state.view === 'week' ? renderWeekView() : renderHistoryView());
+}
+
+render();
+</script>
+</body>
+</html>
